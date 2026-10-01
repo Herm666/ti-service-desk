@@ -1,10 +1,6 @@
-import { redirect } from "next/navigation";
+import Link from "next/link";
+import { db } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
-
-export default async function Home() {
-  const user = await getSessionUser();
-  if (!user) redirect("/login");
-  if (user.role === "ADMIN") redirect("/admin");
-  if (user.role === "TECHNICIAN") redirect("/tech");
-  redirect("/portal");
-}
+import type { Prisma } from "@prisma/client";
+export default async function TechDashboard(){const u=await getSessionUser();if(!u)return null;const active:Prisma.TicketWhereInput={status:{notIn:["RESOLVED","CLOSED","CANCELLED"]}};const [queue, mine, overdue, critical, recent]=await Promise.all([db.ticket.count({where:active}),db.ticket.count({where:{assigneeId:u.id,status:{notIn:["RESOLVED","CLOSED","CANCELLED"]}}}),db.ticket.count({where:{...active,dueAt:{lt:new Date()}}}),db.ticket.count({where:{...active,priority:"CRITICAL"}}),db.ticket.findMany({where:active,orderBy:[{priority:"desc"},{createdAt:"asc"}],take:8,include:{requester:true,assignee:true,department:true}})]);return <><div className="topbar"><div><div className="eyebrow">PAINEL DO TÉCNICO</div><div className="title">Central de atendimento</div><div className="muted">Fila operacional, SLA e chamados atribuídos.</div></div><Link className="btn" href="/tech/tickets">Abrir fila</Link></div><div className="grid grid4"><Metric label="Fila ativa" value={queue}/><Metric label="Meus chamados" value={mine}/><Metric label="SLA vencido" value={overdue}/><Metric label="Críticos" value={critical}/></div><div className="card" style={{marginTop:16}}><div className="between"><h3>Fila prioritária</h3><Link className="link" href="/tech/tickets">Ver fila completa</Link></div><table className="table"><thead><tr><th>#</th><th>Solicitante</th><th>Assunto</th><th>Prioridade</th><th>Status</th><th>Técnico</th></tr></thead><tbody>{recent.map(t=><tr key={t.id}><td><Link className="link" href={`/tech/tickets/${t.id}`}>#{t.number}</Link></td><td>{t.requester.name}</td><td>{t.title}</td><td><span className={`badge ${t.priority==="CRITICAL"?"red":t.priority==="HIGH"?"orange":"blue"}`}>{t.priority}</span></td><td>{t.status}</td><td>{t.assignee?.name||"Não atribuído"}</td></tr>)}</tbody></table></div></>}
+function Metric({label,value}:{label:string,value:number}){return <div className="card"><div className="muted">{label}</div><div className="metric">{value}</div></div>}
