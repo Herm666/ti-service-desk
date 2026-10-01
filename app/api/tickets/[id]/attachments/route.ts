@@ -1,0 +1,5 @@
+import { db } from "@/lib/db";
+import { getSessionUser, canWork } from "@/lib/auth";
+import { saveAttachment } from "@/lib/storage";
+
+export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){const u=await getSessionUser();if(!u)return Response.json({error:"Não autenticado"},{status:401});const {id}=await params;const t=await db.ticket.findUnique({where:{id}});if(!t)return Response.json({error:"Chamado não encontrado"},{status:404});if(u.role==="USER"&&t.requesterId!==u.id&&!canWork(u.role))return Response.json({error:"Sem permissão"},{status:403});const form=await req.formData();const file=form.get("file");if(!(file instanceof File))return Response.json({error:"Arquivo não enviado"},{status:400});if(file.size>10*1024*1024)return Response.json({error:"Arquivo maior que 10 MB"},{status:400});const {url}=await saveAttachment(file);const a=await db.ticketAttachment.create({data:{ticketId:id,fileName:file.name,filePath:url,mimeType:file.type,size:file.size}});await db.ticketHistory.create({data:{ticketId:id,userId:u.id,action:"ANEXO",details:`Arquivo anexado: ${file.name}`}});return Response.json(a)}

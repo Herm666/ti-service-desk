@@ -1,0 +1,2 @@
+import {db} from "@/lib/db"; import {getSessionUser} from "@/lib/auth"; import bcrypt from "bcryptjs";
+export async function POST(req:Request){const u=await getSessionUser();if(!u||u.role!=="ADMIN")return Response.json({error:"Sem permissão"},{status:403});try{const b=await req.json();const passwordHash=await bcrypt.hash(b.password,12);const x=await db.user.create({data:{name:b.name,email:b.email,passwordHash,role:b.role,departmentId:b.departmentId||undefined}});return Response.json({id:x.id})}catch(e:any){return Response.json({error:e.message||"Erro"},{status:400})}}
