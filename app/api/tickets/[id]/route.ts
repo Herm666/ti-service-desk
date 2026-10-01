@@ -1,31 +1,6 @@
+import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getSessionUser, canWork } from "@/lib/auth";
+import { canWorkTickets, getSessionUser } from "@/lib/auth";
 import { TicketStatus, Priority } from "@prisma/client";
-
-export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const u = await getSessionUser(); if (!u) return Response.json({ error: "Não autenticado" }, { status: 401 });
-  const { id } = await params; const current = await db.ticket.findUnique({ where: { id } });
-  if (!current) return Response.json({ error: "Chamado não encontrado" }, { status: 404 });
-  const b = await req.json();
-  if (!canWork(u.role)) {
-    if (current.requesterId !== u.id || !["OPEN"].includes(b.status)) return Response.json({ error: "Sem permissão" }, { status: 403 });
-    const t = await db.ticket.update({ where: { id }, data: { status: TicketStatus.OPEN, resolvedAt: null, closedAt: null } });
-    await db.ticketHistory.create({ data: { ticketId: id, userId: u.id, action: "REABERTO", details: "Chamado reaberto pelo solicitante" } });
-    return Response.json(t);
-  }
-  if (b.status && !Object.values(TicketStatus).includes(b.status)) return Response.json({ error: "Status inválido" }, { status: 400 });
-  if (b.priority && !Object.values(Priority).includes(b.priority)) return Response.json({ error: "Prioridade inválida" }, { status: 400 });
-  const data: any = {};
-  if (b.status) data.status = b.status;
-  if (b.priority) data.priority = b.priority;
-  if ("assigneeId" in b) data.assigneeId = b.assigneeId || null;
-  if (b.status === "RESOLVED") data.resolvedAt = new Date();
-  if (b.status !== "RESOLVED") data.resolvedAt = null;
-  if (b.status === "CLOSED") data.closedAt = new Date();
-  if (b.status !== "CLOSED") data.closedAt = null;
-  const t = await db.ticket.update({ where: { id }, data });
-  const detail = [b.status && `status=${b.status}`, b.priority && `prioridade=${b.priority}`, "assigneeId" in b && `técnico=${b.assigneeId || "não atribuído"}`].filter(Boolean).join("; ");
-  await db.ticketHistory.create({ data: { ticketId: id, userId: u.id, action: "ATUALIZAÇÃO", details: detail || "Chamado atualizado" } });
-  await db.auditLog.create({ data: { userId: u.id, action: "TICKET_UPDATE", entity: "Ticket", entityId: id, details: detail || "Chamado atualizado" } });
-  return Response.json(t);
-}
+export async function GET(_:Request,{params}:{params:Promise<{id:string}>}){const u=await getSessionUser();if(!u)return NextResponse.json({error:"Não autenticado"},{status:401});const {id}=await params;const t=await db.ticket.findUnique({where:{id},include:{requester:true,assignee:true,department:true,category:true,messages:{orderBy:{createdAt:"asc"},include:{author:true}},attachments:true}});if(!t)return NextResponse.json({error:"Chamado não encontrado"},{status:404});if(u.role==="REQUESTER"&&t.requesterId!==u.id)return NextResponse.json({error:"Sem acesso"},{status:403});return NextResponse.json(t);}
+export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){const u=await getSessionUser();if(!u)return NextResponse.json({error:"Não autenticado"},{status:401});if(!canWorkTickets(u.role))return NextResponse.json({error:"Sem permissão"},{status:403});const {id}=await params;const body=await req.json().catch(()=>({}));const data:{status?:TicketStatus;priority?:Priority;assigneeId?:string|null;resolvedAt?:Date|null;closedAt?:Date|null}={};if(body.status&&Object.values(TicketStatus).includes(body.status))data.status=body.status;if(body.priority&&Object.values(Priority).includes(body.priority))data.priority=body.priority;if(body.assigneeId!==undefined)data.assigneeId=body.assigneeId||null;if(data.status==="RESOLVED")data.resolvedAt=new Date();if(data.status==="CLOSED")data.closedAt=new Date();const ticket=await db.ticket.update({where:{id},data});await db.auditLog.create({data:{userId:u.id,action:"UPDATE",entity:"TICKET",entityId:id,details:JSON.stringify(body)}});return NextResponse.json(ticket);}

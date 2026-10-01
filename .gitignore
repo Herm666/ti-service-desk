@@ -1,24 +1,6 @@
-# dependências
-/node_modules
-
-# build da Vercel/Next.js
-/.next/
-/out/
-/build
-.vercel
-
-# variáveis de ambiente (nunca versionar segredos)
+node_modules
+.next
 .env
-.env*.local
-
-# prisma
-prisma/*.db
-
-# uploads antigos (armazenamento local, não usado em produção)
-/public/uploads
-
-# logs e cache
-npm-debug.log*
-.DS_Store
-*.tsbuildinfo
-next-env.d.ts
+.env.local
+.vercel
+*.log

@@ -1,62 +1,40 @@
-import { PrismaClient, Role, Priority, TicketStatus } from "@prisma/client";
+import { PrismaClient, Priority, Role } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const db = new PrismaClient();
 
 async function main() {
-  const passwordHash = await bcrypt.hash("Admin@123", 12);
-
-  const departments = ["COMERCIAL","ESTOQUE","INTERATIVO","LABORATÓRIO TI","SEC_ESTAGIO","ADM","PEDAGÓGICO","CRA"];
-  for (const name of departments) await db.department.upsert({ where:{name}, update:{}, create:{name} });
-
-  const adminDept = await db.department.findUnique({where:{name:"LABORATÓRIO TI"}});
-  const admin = await db.user.upsert({
-    where:{email:"admin@tiservice.local"},
-    update:{passwordHash, role:Role.ADMIN, active:true},
-    create:{name:"Administrador TI",email:"admin@tiservice.local",passwordHash,role:Role.ADMIN,departmentId:adminDept?.id}
-  });
-
-  const tech = await db.user.upsert({
-    where:{email:"tecnico@tiservice.local"},
-    update:{passwordHash, role:Role.TECHNICIAN, active:true},
-    create:{name:"Técnico TI",email:"tecnico@tiservice.local",passwordHash,role:Role.TECHNICIAN,departmentId:adminDept?.id}
-  });
-
-  const categories = ["Hardware","Software","Rede","Impressora","Sistemas","E-mail","Acesso","Telefonia","Segurança","Outros"];
-  for (const name of categories) await db.category.upsert({where:{name},update:{},create:{name}});
-
-  await db.sLA.upsert({
-    where:{name:"Padrão"},
-    update:{},
-    create:{name:"Padrão",lowMinutes:2880,mediumMinutes:1440,highMinutes:480,criticalMinutes:120}
-  });
-
-  const userDept = await db.department.findUnique({where:{name:"ADM"}});
-  const requester = await db.user.upsert({
-    where:{email:"usuario@tiservice.local"},
-    update:{passwordHash,departmentId:userDept?.id},
-    create:{name:"Usuário de Teste",email:"usuario@tiservice.local",passwordHash,role:Role.USER,departmentId:userDept?.id}
-  });
-
-  const count = await db.ticket.count();
-  if (!count) {
-    const category = await db.category.findUnique({where:{name:"Rede"}});
-    const sla = await db.sLA.findUnique({where:{name:"Padrão"}});
-    const ticket = await db.ticket.create({
-      data:{
-        title:"Sem acesso à rede no laboratório",
-        description:"Computador não consegue acessar a rede interna.",
-        priority:Priority.HIGH,status:TicketStatus.ASSIGNED,
-        requesterId:requester.id,assigneeId:tech.id,departmentId:userDept?.id,
-        categoryId:category?.id,slaId:sla?.id,dueAt:new Date(Date.now()+480*60000)
-      }
-    });
-    await db.ticketHistory.create({data:{ticketId:ticket.id,userId:admin.id,action:"CRIADO",details:"Chamado inicial de demonstração"}})
+  const passwordHash = await bcrypt.hash("Troque@123", 12);
+  const departments = ["ADM", "CRA", "PEDAGOGICO", "COMERCIAL", "ESTAGIO", "SALAS DE AULA", "LAB DE TI", "LAB INTERATIVO"];
+  const deps = new Map<string, string>();
+  for (const name of departments) {
+    const d = await db.department.upsert({ where: { name }, update: {}, create: { name } });
+    deps.set(name, d.id);
   }
 
-  console.log("Seed concluído.");
-  console.log("Admin: admin@tiservice.local / Admin@123");
-  console.log("Técnico: tecnico@tiservice.local / Admin@123");
-  console.log("Usuário: usuario@tiservice.local / Admin@123");
+  const users = [
+    ["Hermeson Sena", "hermeson@graucabo.local", Role.ADMIN],
+    ["Emanoel", "emanoel@graucabo.local", Role.TECHNICIAN],
+    ["Ghabriel", "ghabriel@graucabo.local", Role.TECHNICIAN],
+    ["Solicitante Demo", "solicitante@graucabo.local", Role.REQUESTER],
+  ] as const;
+  for (const [name, email, role] of users) {
+    await db.user.upsert({ where: { email }, update: { name, role, passwordHash, active: true }, create: { name, email, role, passwordHash, departmentId: deps.get("ADM") } });
+  }
+
+  const categories = ["Computador", "Impressora", "Rede/Internet", "Sistema", "Acesso", "E-mail", "Projetor", "Outro"];
+  for (const name of categories) await db.category.upsert({ where: { name }, update: {}, create: { name } });
+
+  const sla = [
+    ["Baixa", Priority.LOW, 480, 2880],
+    ["Média", Priority.MEDIUM, 240, 1440],
+    ["Alta", Priority.HIGH, 60, 480],
+    ["Crítica", Priority.CRITICAL, 15, 120],
+  ] as const;
+  for (const [name, priority, responseMins, resolutionMins] of sla) {
+    await db.sla.upsert({ where: { priority }, update: { name, responseMins, resolutionMins }, create: { name, priority, responseMins, resolutionMins } });
+  }
+  console.log("Seed concluído. Login inicial: hermeson@graucabo.local / Troque@123");
 }
-main().finally(()=>db.$disconnect());
+
+main().finally(() => db.$disconnect());

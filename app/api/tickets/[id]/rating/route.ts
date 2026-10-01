@@ -1,3 +1,0 @@
-import { db } from "@/lib/db";
-import { getSessionUser } from "@/lib/auth";
-export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){const u=await getSessionUser();if(!u)return Response.json({error:"Não autenticado"},{status:401});const {id}=await params;const t=await db.ticket.findUnique({where:{id}});if(!t||t.requesterId!==u.id)return Response.json({error:"Sem permissão"},{status:403});const b=await req.json();const rating=Number(b.rating);if(!Number.isInteger(rating)||rating<1||rating>5)return Response.json({error:"Nota inválida"},{status:400});const r=await db.ticketRating.upsert({where:{ticketId:id},create:{ticketId:id,rating,comment:b.comment?.trim()||undefined},update:{rating,comment:b.comment?.trim()||undefined}});return Response.json(r)}

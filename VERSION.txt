@@ -1,1 +1,0 @@
-TI Service Desk V4.1 — GLPI Style / Vercel + PostgreSQL gerenciado + Vercel Blob / 3 perfis

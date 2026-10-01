@@ -1,26 +1,23 @@
 generator client {
-  provider      = "prisma-client-js"
-  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DATABASE_URL_UNPOOLED")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 enum Role {
-  ADMIN
+  REQUESTER
   TECHNICIAN
-  USER
+  MANAGER
+  ADMIN
 }
 
 enum TicketStatus {
   OPEN
-  TRIAGE
-  ASSIGNED
   IN_PROGRESS
-  PENDING
+  WAITING
   RESOLVED
   CLOSED
   CANCELLED
@@ -33,175 +30,121 @@ enum Priority {
   CRITICAL
 }
 
-enum AssetStatus {
-  ACTIVE
-  MAINTENANCE
-  STOCK
-  RETIRED
-  LOST
+model User {
+  id           String           @id @default(cuid())
+  name         String
+  email        String           @unique
+  passwordHash String
+  role         Role             @default(REQUESTER)
+  active       Boolean          @default(true)
+  departmentId String?
+  department   Department?      @relation(fields: [departmentId], references: [id])
+  requested    Ticket[]         @relation("Requester")
+  assigned     Ticket[]         @relation("Assignee")
+  messages     TicketMessage[]
+  audits       AuditLog[]
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([role, active])
+  @@index([departmentId])
 }
 
 model Department {
   id        String   @id @default(cuid())
   name      String   @unique
+  active    Boolean  @default(true)
   users     User[]
   tickets   Ticket[]
-  assets    Asset[]
   createdAt DateTime @default(now())
 }
 
-model User {
-  id           String       @id @default(cuid())
-  name         String
-  email        String       @unique
-  passwordHash String
-  role         Role         @default(USER)
-  active       Boolean      @default(true)
-  departmentId String?
-  department   Department?  @relation(fields: [departmentId], references: [id])
-  tickets      Ticket[]     @relation("Requester")
-  assigned     Ticket[]     @relation("Assignee")
-  messages     TicketMessage[]
-  history      TicketHistory[]
-  assets       Asset[]      @relation("AssetOwner")
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-}
-
 model Category {
-  id            String       @id @default(cuid())
-  name          String       @unique
-  description   String?
+  id        String   @id @default(cuid())
+  name      String   @unique
+  active    Boolean  @default(true)
+  tickets   Ticket[]
+  createdAt DateTime @default(now())
+}
+
+model Sla {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  priority      Priority @unique
+  responseMins  Int
+  resolutionMins Int
+  active        Boolean  @default(true)
   tickets       Ticket[]
-  subcategories Subcategory[]
-}
-
-model Subcategory {
-  id         String   @id @default(cuid())
-  name       String
-  categoryId String
-  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  tickets    Ticket[]
-  @@unique([categoryId, name])
-}
-
-model SLA {
-  id                    String   @id @default(cuid())
-  name                  String   @unique
-  lowMinutes            Int      @default(2880)
-  mediumMinutes         Int      @default(1440)
-  highMinutes           Int      @default(480)
-  criticalMinutes       Int      @default(120)
-  active                Boolean  @default(true)
-  tickets               Ticket[]
 }
 
 model Ticket {
-  id             String       @id @default(cuid())
-  number         Int          @unique @default(autoincrement())
-  title          String
-  description    String
-  status         TicketStatus @default(OPEN)
-  priority       Priority     @default(MEDIUM)
-  requesterId    String
-  requester      User         @relation("Requester", fields: [requesterId], references: [id])
-  assigneeId     String?
-  assignee       User?        @relation("Assignee", fields: [assigneeId], references: [id])
-  departmentId   String?
-  department     Department?  @relation(fields: [departmentId], references: [id])
-  categoryId     String?
-  category       Category?    @relation(fields: [categoryId], references: [id])
-  subcategoryId  String?
-  subcategory    Subcategory? @relation(fields: [subcategoryId], references: [id])
-  slaId          String?
-  sla            SLA?         @relation(fields: [slaId], references: [id])
-  dueAt          DateTime?
-  resolvedAt     DateTime?
-  closedAt       DateTime?
-  messages       TicketMessage[]
-  history        TicketHistory[]
-  rating         TicketRating?
-  attachments    TicketAttachment[]
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  @@index([status])
-  @@index([priority])
-  @@index([requesterId])
-  @@index([assigneeId])
+  id            String          @id @default(cuid())
+  number        Int             @unique @default(autoincrement())
+  subject       String
+  description   String
+  status        TicketStatus    @default(OPEN)
+  priority      Priority        @default(MEDIUM)
+  requesterId   String
+  assigneeId    String?
+  departmentId  String
+  categoryId    String?
+  slaId         String?
+  dueAt         DateTime?
+  resolvedAt    DateTime?
+  closedAt      DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  requester     User            @relation("Requester", fields: [requesterId], references: [id])
+  assignee      User?           @relation("Assignee", fields: [assigneeId], references: [id])
+  department    Department      @relation(fields: [departmentId], references: [id])
+  category      Category?       @relation(fields: [categoryId], references: [id])
+  sla           Sla?            @relation(fields: [slaId], references: [id])
+  messages      TicketMessage[]
+  attachments   TicketAttachment[]
+
+  @@index([status, priority])
+  @@index([requesterId, createdAt])
+  @@index([assigneeId, status])
+  @@index([departmentId, status])
 }
 
 model TicketMessage {
   id        String   @id @default(cuid())
   ticketId  String
-  ticket    Ticket  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   authorId  String
-  author    User    @relation(fields: [authorId], references: [id])
   body      String
   internal  Boolean  @default(false)
-  attachments TicketAttachment[]
   createdAt DateTime @default(now())
-  @@index([ticketId])
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id])
+
+  @@index([ticketId, createdAt])
 }
 
-model TicketHistory {
+model TicketAttachment {
   id        String   @id @default(cuid())
   ticketId  String
-  ticket    Ticket  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User    @relation(fields: [userId], references: [id])
-  action    String
-  details   String?
+  name      String
+  url       String
+  size      Int?
+  mimeType  String?
   createdAt DateTime @default(now())
-  @@index([ticketId])
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 }
 
 model Asset {
-  id              String        @id @default(cuid())
-  tag             String        @unique
-  name            String
-  type            String
-  manufacturer    String?
-  model           String?
-  serial          String?
-  hostname        String?
-  ip              String?
-  mac             String?
-  operatingSystem String?
-  processor       String?
-  ram             String?
-  storage         String?
-  location        String?
-  locationDetail  String?
-  status          AssetStatus   @default(ACTIVE)
-  departmentId    String?
-  department      Department?   @relation(fields: [departmentId], references: [id])
-  ownerId         String?
-  owner           User?         @relation("AssetOwner", fields: [ownerId], references: [id])
-  supplier        String?
-  acquisitionCost Float?
-  purchaseDate    DateTime?
-  warrantyUntil   DateTime?
-  notes           String?
-  histories       AssetHistory[]
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  @@index([type])
-  @@index([status])
-  @@index([departmentId])
-  @@index([ownerId])
-  @@index([serial])
-}
+  id           String   @id @default(cuid())
+  tag          String   @unique
+  name         String
+  type         String
+  serialNumber String?
+  location     String?
+  status       String   @default("ATIVO")
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-model AssetHistory {
-  id        String   @id @default(cuid())
-  assetId   String
-  asset     Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
-  userId    String?
-  action    String
-  details   String?
-  createdAt DateTime @default(now())
-  @@index([assetId])
-  @@index([createdAt])
+  @@index([type, status])
 }
 
 model AuditLog {
@@ -212,27 +155,8 @@ model AuditLog {
   entityId  String?
   details   String?
   createdAt DateTime @default(now())
-}
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
-model TicketRating {
-  id        String   @id @default(cuid())
-  ticketId  String   @unique
-  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  rating    Int
-  comment   String?
-  createdAt DateTime @default(now())
-}
-
-model TicketAttachment {
-  id        String   @id @default(cuid())
-  ticketId  String
-  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  messageId String?
-  message   TicketMessage? @relation(fields: [messageId], references: [id], onDelete: SetNull)
-  fileName  String
-  filePath  String
-  mimeType  String?
-  size      Int?
-  createdAt DateTime @default(now())
-  @@index([ticketId])
+  @@index([createdAt])
+  @@index([entity, entityId])
 }

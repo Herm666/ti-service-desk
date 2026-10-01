@@ -1,119 +1,49 @@
-# TI Service Desk — V4 GLPI Style
+# Central Operacional TI - Grau Cabo
 
-Sistema de gestão de TI com três experiências:
-- Solicitante: portal de abertura e acompanhamento de chamados.
-- Técnico: fila operacional, SLA, atribuição, notas internas e inventário.
-- Administrador: gestão completa de usuários, ativos, categorias, SLA, relatórios e auditoria.
+Portal de chamados para o Grau Técnico Cabo, reconstruído para Vercel + PostgreSQL gerenciado e sem Docker.
 
-## Arquitetura de produção
+## Arquitetura
 
-| Componente | Função |
-|---|---|
-| Vercel | Frontend + API/backend |
-| PostgreSQL gerenciado | Chamados, usuários, setores, histórico, SLA |
-| Storage (Vercel Blob) | Prints, PDFs, fotos e outros anexos |
-| Domínio próprio | Endereço profissional |
-| GitHub | Código e versionamento |
-| Vercel Deploy | Publicação automática a cada push |
+- Next.js App Router
+- TypeScript strict
+- Prisma + PostgreSQL
+- Sessão HTTP-only assinada
+- Vercel Blob opcional para anexos
+- Sem Docker
+- Sem banco local obrigatório
 
-```
-GitHub (push) -> Vercel Deploy (build automático)
-                       |
-                       v
-   Vercel (Next.js: frontend + rotas /api)
-                       |
-        +--------------+--------------+
-        |                             |
-        v                             v
-PostgreSQL gerenciado           Vercel Blob (anexos)
-(Neon / Vercel Postgres)
+## Desenvolvimento local
+
+Requisitos: Node.js 20.19+ / 22.12+ / 24.x e uma URL PostgreSQL.
+
+```bash
+npm install
+copy .env.example .env.local
 ```
 
-## Stack
-Next.js + TypeScript + Prisma + PostgreSQL + Vercel Blob.
+Preencha `DATABASE_URL` e `SESSION_SECRET`.
 
-## Deploy em produção (Vercel)
+```bash
+npx prisma migrate dev --name init
+npm run db:seed
+npm run dev
+```
 
-1. **GitHub**: suba o projeto em um repositório (privado, de preferência).
-   ```
-   git init
-   git add .
-   git commit -m "TI Service Desk V4"
-   git branch -M main
-   git remote add origin https://github.com/sua-org/ti-service-desk.git
-   git push -u origin main
-   ```
-2. **Banco gerenciado**: crie um banco PostgreSQL (Vercel Postgres, em *Storage* no dashboard da Vercel, ou Neon). Copie a connection string com pooling (`DATABASE_URL`) e a direta (`DATABASE_URL_UNPOOLED`).
-3. **Storage**: em *Storage* no dashboard da Vercel, crie um **Blob Store** e conecte ao projeto — a variável `BLOB_READ_WRITE_TOKEN` é gerada automaticamente.
-4. **Importar o projeto na Vercel**: New Project -> selecione o repositório do GitHub -> framework detectado automaticamente como Next.js.
-5. **Variáveis de ambiente** (Project Settings -> Environment Variables), copiando o padrão de `.env.example`:
-   - `DATABASE_URL`
-   - `DATABASE_URL_UNPOOLED`
-   - `JWT_SECRET` (gere um valor aleatório grande)
-   - `APP_URL` (o domínio final, ex.: `https://ti.suaescola.com.br`)
-   - `BLOB_READ_WRITE_TOKEN`
-6. **Migrar o schema**: rode localmente (apontando para o banco de produção) ou via `vercel env pull` + `npx prisma migrate deploy`:
-   ```
-   npx prisma migrate deploy
-   npx prisma db seed
-   ```
-7. **Deploy**: clique em Deploy — a Vercel executa `prisma generate && next build` automaticamente (definido em `package.json`).
-8. **Domínio próprio**: em Project Settings -> Domains, adicione o domínio da escola e aponte o DNS (CNAME/registro sugerido pela própria Vercel).
-9. **Deploys automáticos**: a partir daqui, todo `git push` na branch `main` publica uma nova versão automaticamente; pushes em outras branches/PRs geram *preview deployments*.
+## Primeiro acesso
 
-## Ambiente de desenvolvimento local
+- `hermeson@graucabo.local`
+- `Troque@123`
 
-Para desenvolver localmente, um banco PostgreSQL via Docker continua disponível (não é usado em produção):
+Troque a senha antes de entregar o sistema.
 
-1. Extraia o ZIP e abra um terminal na pasta do projeto.
-2. Execute:
-   docker compose up -d
-3. Copie `.env.example` para `.env` e ajuste `DATABASE_URL` para `postgresql://ti_admin:troque-esta-senha@localhost:5432/ti_service_desk?schema=public` (sem `DATABASE_URL_UNPOOLED`, sem `BLOB_READ_WRITE_TOKEN` — os uploads locais exigem uma conta Vercel Blob mesmo em dev, ou você pode gerar um token de storage de desenvolvimento no dashboard da Vercel).
-4. Execute:
-   npm install
-5. Execute:
-   npx prisma generate
-6. Execute:
-   npx prisma db push
-7. Execute:
-   npx prisma db seed
-8. Execute:
-   npm run dev
-9. Acesse:
-   http://localhost:3000
+## Vercel
 
-## Contas de demonstração
-- Administrador: admin@tiservice.local / Admin@123
-- Técnico: tecnico@tiservice.local / Admin@123
-- Solicitante: usuario@tiservice.local / Admin@123
+1. Suba este projeto para um repositório GitHub novo.
+2. Importe o repositório na Vercel.
+3. Crie/associe um PostgreSQL pelo Marketplace e configure `DATABASE_URL`.
+4. Configure `SESSION_SECRET`.
+5. Para anexos, crie um Blob Store e configure `BLOB_READ_WRITE_TOKEN`.
+6. Faça o deploy.
+7. Depois de provisionar o banco, execute `npx prisma migrate deploy` contra o banco de produção ou use o fluxo de migrations da sua CI.
 
-## Banco (desenvolvimento local via Docker)
-O PostgreSQL local fica persistido no volume Docker `ti_service_desk_pgdata`.
-
-Ver dados:
-docker exec -it ti-service-desk-db psql -U ti_admin -d ti_service_desk
-
-Backup:
-docker exec ti-service-desk-db pg_dump -U ti_admin -d ti_service_desk > backup.sql
-
-Restaurar:
-Get-Content backup.sql | docker exec -i ti-service-desk-db psql -U ti_admin -d ti_service_desk
-
-Em produção, o backup passa a ser responsabilidade do provedor do banco gerenciado (Vercel Postgres/Neon oferecem backups automáticos/point-in-time restore no painel).
-
-## Checklist antes de publicar
-- troque todas as senhas e o `JWT_SECRET`;
-- não reutilize as contas de demonstração em produção;
-- confirme que `.env` não foi versionado (já está no `.gitignore`);
-- configure SMTP se for usar notificações por e-mail;
-- avalie LDAP/Active Directory se necessário;
-- restrinja exclusões a administradores e mantenha a auditoria ativa.
-
-## Inventário
-O modelo de ativo deve ser usado como patrimônio de TI:
-Computadores, monitores, impressoras, rede, notebooks, projetores, nobreaks, telefones, periféricos etc.
-
-Estados recomendados:
-ATIVO, MANUTENCAO, ESTOQUE, BAIXADO, EXTRAVIADO.
-
-Não apague um equipamento apenas porque saiu de uso: prefira BAIXADO para preservar histórico.
+O banco é independente do deploy: novo deploy não apaga os chamados.
