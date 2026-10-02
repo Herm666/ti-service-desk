@@ -1,49 +1,47 @@
-# Central Operacional TI - Grau Cabo
+# Central Operacional TI — Grau Técnico Cabo
 
-Portal de chamados para o Grau Técnico Cabo, reconstruído para Vercel + PostgreSQL gerenciado e sem Docker.
+Portal de chamados desenvolvido com Next.js 15, React 19, Prisma 6 e PostgreSQL.
 
-## Arquitetura
+## Interface reformulada
 
-- Next.js App Router
-- TypeScript strict
-- Prisma + PostgreSQL
-- Sessão HTTP-only assinada
-- Vercel Blob opcional para anexos
-- Sem Docker
-- Sem banco local obrigatório
+A experiência pública foi redesenhada com cabeçalho azul-marinho, destaques verdes, indicadores, informações rápidas, fluxo de abertura/acompanhamento e layout responsivo.
 
-## Desenvolvimento local
+## Requisitos
 
-Requisitos: Node.js 20.19+ / 22.12+ / 24.x e uma URL PostgreSQL.
+- Node.js compatível com Next.js 15
+- PostgreSQL (por exemplo, Neon)
+- Variáveis de ambiente configuradas conforme `.env.example`
+
+## Executar localmente
 
 ```bash
 npm install
-copy .env.example .env.local
+cp .env.example .env
 ```
 
-Preencha `DATABASE_URL` e `SESSION_SECRET`.
+Preencha `DATABASE_URL` e `SESSION_SECRET` no `.env`. Depois:
 
 ```bash
-npx prisma migrate dev --name init
+npx prisma generate
+npx prisma migrate deploy
 npm run db:seed
 npm run dev
 ```
 
-## Primeiro acesso
+Acesse `http://localhost:3000`.
 
-- `hermeson@graucabo.local`
-- `Troque@123`
+> O seed cria setores, categorias, regras de SLA e contas iniciais. Troque as senhas iniciais antes de disponibilizar o sistema.
 
-Troque a senha antes de entregar o sistema.
+## Fluxo público
 
-## Vercel
+- `/portal`: página inicial pública.
+- `/portal/new`: abertura de chamado.
+- `/portal/tickets`: consulta por número do chamado e nome do solicitante.
+- `/login`: acesso da equipe interna.
+- `/tech` e `/admin`: painéis internos autenticados.
 
-1. Suba este projeto para um repositório GitHub novo.
-2. Importe o repositório na Vercel.
-3. Crie/associe um PostgreSQL pelo Marketplace e configure `DATABASE_URL`.
-4. Configure `SESSION_SECRET`.
-5. Para anexos, crie um Blob Store e configure `BLOB_READ_WRITE_TOKEN`.
-6. Faça o deploy.
-7. Depois de provisionar o banco, execute `npx prisma migrate deploy` contra o banco de produção ou use o fluxo de migrations da sua CI.
+## Observação de segurança
 
-O banco é independente do deploy: novo deploy não apaga os chamados.
+A consulta pública por número e nome é uma validação simples, não uma autenticação forte: nomes podem ser conhecidos por terceiros. Para chamados com dados sensíveis, recomenda-se migrar para token aleatório de acompanhamento ou código enviado ao contato cadastrado, além de aplicar rate limiting na API pública.
+
+Não versione `.env` ou `.env.local`. Configure as variáveis diretamente no ambiente de hospedagem.

@@ -1,5 +1,25 @@
-import { redirect } from "next/navigation";
-import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { NewTicketForm } from "@/components/NewTicketForm";
-export default async function NewTicket(){const u=await getSessionUser();if(!u)redirect("/login");const [categories,departments]=await Promise.all([db.category.findMany({where:{active:true},orderBy:{name:"asc"}}),db.department.findMany({where:{active:true},orderBy:{name:"asc"}})]);return <><div className="eyebrow">NOVO CHAMADO</div><div className="title">Solicitar atendimento</div><p className="muted">Descreva o problema com clareza para reduzir o tempo de diagnóstico.</p><div className="spacer"/><div className="card"><NewTicketForm categories={categories} departments={departments} defaultDepartment={u.departmentId||departments[0]?.id||""}/></div></>}
+import Link from "next/link";
+
+export default async function NewTicket() {
+  const [categories, departments] = await Promise.all([
+    db.category.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
+    db.department.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
+  ]);
+
+  return (
+    <main className="public-main">
+      <div className="between">
+        <div><div className="eyebrow">CENTRAL OPERACIONAL TI</div><h1 className="title">Abrir novo chamado</h1><p className="muted">Informe os dados e descreva a necessidade. Os campos com asterisco são obrigatórios.</p></div>
+        <Link className="btn secondary" href="/portal">← Voltar ao início</Link>
+      </div>
+      <div className="spacer" />
+      {departments.length === 0 || categories.length === 0 ? (
+        <div className="card"><h2>Portal em configuração</h2><p className="muted">Ainda não há setores ou categorias cadastrados. A equipe administradora precisa executar o cadastro inicial do sistema.</p></div>
+      ) : (
+        <div className="card"><NewTicketForm categories={categories} departments={departments} defaultDepartment={departments[0]?.id || ""} /></div>
+      )}
+    </main>
+  );
+}

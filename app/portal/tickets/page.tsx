@@ -1,2 +1,12 @@
-import Link from "next/link";import {redirect} from "next/navigation";import {db} from "@/lib/db";import {getSessionUser} from "@/lib/auth";import {priorityLabel,statusLabel} from "@/lib/ticket";
-export default async function Tickets(){const u=await getSessionUser();if(!u)redirect("/login");const tickets=await db.ticket.findMany({where:{requesterId:u.id},orderBy:{createdAt:"desc"},include:{assignee:true,department:true}});return <><div className="between"><div><div className="eyebrow">PORTAL</div><div className="title">Meus chamados</div></div><Link className="btn" href="/portal/new">+ Novo chamado</Link></div><div className="spacer"/><div className="card"><div className="table-wrap"><table className="table"><thead><tr><th>#</th><th>Assunto</th><th>Setor</th><th>Prioridade</th><th>Status</th><th>Responsável</th></tr></thead><tbody>{tickets.map(t=><tr key={t.id}><td>#{t.number}</td><td><Link href={`/portal/tickets/${t.id}`}>{t.subject}</Link></td><td>{t.department.name}</td><td><span className={`badge ${t.priority.toLowerCase()}`}>{priorityLabel(t.priority)}</span></td><td><span className={`badge ${t.status.toLowerCase().replace("_","-")}`}>{statusLabel(t.status)}</span></td><td>{t.assignee?.name||"Fila de TI"}</td></tr>)}</tbody></table></div></div></>}
+import Link from "next/link";
+import { TicketLookupForm } from "@/components/TicketLookupForm";
+
+export default function Tickets() {
+  return <main className="public-main">
+    <div className="between"><div><div className="eyebrow">ACOMPANHAMENTO</div><h1 className="title">Consultar chamado</h1><p className="muted">Informe o número do chamado e o nome utilizado na abertura.</p></div><Link className="btn secondary" href="/portal">← Início</Link></div>
+    <div className="spacer" />
+    <section className="card"><TicketLookupForm /></section>
+    <div className="spacer" />
+    <section className="card"><div className="between"><div><h2>Precisa registrar uma nova solicitação?</h2><p className="muted">Descreva o problema para que a equipe de TI possa avaliar e direcionar o atendimento.</p></div><Link className="btn" href="/portal/new">＋ Abrir chamado</Link></div></section>
+  </main>;
+}
