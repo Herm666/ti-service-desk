@@ -1,2 +1,115 @@
-import Link from "next/link";import {redirect} from "next/navigation";import {db} from "@/lib/db";import {getSessionUser,canManage} from "@/lib/auth";
-export default async function Admin(){const u=await getSessionUser();if(!u)redirect("/login");if(!canManage(u.role))redirect("/");const [users,deps,cats,assets,tickets]=await Promise.all([db.user.count(),db.department.count(),db.category.count(),db.asset.count(),db.ticket.count()]);return <><div className="eyebrow">ADMINISTRAÇÃO</div><div className="title">Gestão da Central de TI</div><p className="muted">Cadastros e visão operacional do ambiente.</p><div className="spacer"/><div className="grid grid4"><div className="card"><div className="muted">Usuários</div><div className="metric">{users}</div></div><div className="card"><div className="muted">Setores</div><div className="metric">{deps}</div></div><div className="card"><div className="muted">Categorias</div><div className="metric">{cats}</div></div><div className="card"><div className="muted">Ativos</div><div className="metric">{assets}</div></div></div><div className="spacer"/><div className="grid grid3"><Link className="card" href="/admin/users"><h2>Usuários</h2><p className="muted">Solicitantes, técnicos e gestores.</p></Link><Link className="card" href="/admin/departments"><h2>Setores</h2><p className="muted">ADM, CRA, Pedagógico, Comercial etc.</p></Link><Link className="card" href="/admin/categories"><h2>Categorias</h2><p className="muted">Tipos de atendimento.</p></Link><Link className="card" href="/admin/assets"><h2>Ativos</h2><p className="muted">Inventário de equipamentos.</p></Link><div className="card"><h2>Chamados</h2><p className="muted">Total registrado: {tickets}</p></div></div></>}
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { db } from "@/lib/db";
+import { getSessionUser, canManage } from "@/lib/auth";
+import { NewTicketNotification } from "@/components/NewTicketNotification";
+
+export default async function Admin() {
+  const u = await getSessionUser();
+
+  if (!u) redirect("/login");
+  if (!canManage(u.role)) redirect("/");
+
+  const [users, deps, cats, assets, tickets] =
+    await Promise.all([
+      db.user.count(),
+      db.department.count(),
+      db.category.count(),
+      db.asset.count(),
+      db.ticket.count(),
+    ]);
+
+  return (
+    <>
+      <NewTicketNotification />
+
+      <div className="eyebrow">
+        ADMINISTRAÇÃO
+      </div>
+
+      <div className="title">
+        Gestão da Central de TI
+      </div>
+
+      <p className="muted">
+        Cadastros e visão operacional do ambiente.
+      </p>
+
+      <div className="spacer" />
+
+      <div className="grid grid4">
+        <div className="card">
+          <div className="muted">Usuários</div>
+          <div className="metric">{users}</div>
+        </div>
+
+        <div className="card">
+          <div className="muted">Setores</div>
+          <div className="metric">{deps}</div>
+        </div>
+
+        <div className="card">
+          <div className="muted">Categorias</div>
+          <div className="metric">{cats}</div>
+        </div>
+
+        <div className="card">
+          <div className="muted">Ativos</div>
+          <div className="metric">{assets}</div>
+        </div>
+      </div>
+
+      <div className="spacer" />
+
+      <div className="grid grid3">
+        <Link
+          className="card"
+          href="/admin/users"
+        >
+          <h2>Usuários</h2>
+          <p className="muted">
+            Solicitantes, técnicos e gestores.
+          </p>
+        </Link>
+
+        <Link
+          className="card"
+          href="/admin/departments"
+        >
+          <h2>Setores</h2>
+          <p className="muted">
+            ADM, CRA, Pedagógico, Comercial etc.
+          </p>
+        </Link>
+
+        <Link
+          className="card"
+          href="/admin/categories"
+        >
+          <h2>Categorias</h2>
+          <p className="muted">
+            Tipos de atendimento.
+          </p>
+        </Link>
+
+        <Link
+          className="card"
+          href="/admin/assets"
+        >
+          <h2>Ativos</h2>
+          <p className="muted">
+            Inventário de equipamentos.
+          </p>
+        </Link>
+
+        <div className="card">
+          <h2>Chamados</h2>
+
+          <p className="muted">
+            Total registrado: {tickets}
+          </p>
+        </div>
+      </div>
+    </>
+  );
+}

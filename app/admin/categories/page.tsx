@@ -1,2 +1,80 @@
-import {redirect} from "next/navigation";import {db} from "@/lib/db";import {getSessionUser,canManage} from "@/lib/auth";
-export default async function Categories(){const u=await getSessionUser();if(!u)redirect("/login");if(!canManage(u.role))redirect("/");const items=await db.category.findMany({orderBy:{name:"asc"},include:{_count:{select:{tickets:true}}}});return <><div className="between"><div><div className="eyebrow">ADMINISTRAÇÃO</div><div className="title">Categorias</div></div><a className="btn secondary" href="/admin">← Administração</a></div><div className="spacer"/><div className="card"><table className="table"><thead><tr><th>Categoria</th><th>Chamados</th><th>Status</th></tr></thead><tbody>{items.map(x=><tr key={x.id}><td>{x.name}</td><td>{x._count.tickets}</td><td>{x.active?"Ativa":"Inativa"}</td></tr>)}</tbody></table></div></>}
+import { redirect } from "next/navigation";
+import { db } from "@/lib/db";
+import { getSessionUser, canManage } from "@/lib/auth";
+import CategoryForm from "./CategoryForm";
+
+export default async function Categories() {
+  const u = await getSessionUser();
+
+  if (!u) {
+    redirect("/login");
+  }
+
+  if (!canManage(u.role)) {
+    redirect("/");
+  }
+
+  const items = await db.category.findMany({
+    orderBy: {
+      name: "asc",
+    },
+    include: {
+      _count: {
+        select: {
+          tickets: true,
+        },
+      },
+    },
+  });
+
+  return (
+    <>
+      <div className="between">
+        <div>
+          <div className="eyebrow">ADMINISTRAÇÃO</div>
+          <div className="title">Categorias</div>
+        </div>
+
+        <a className="btn secondary" href="/admin">
+          ← Administração
+        </a>
+      </div>
+
+      <div className="spacer" />
+
+      <CategoryForm />
+
+      <div className="spacer" />
+
+      <div className="card">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Categoria</th>
+              <th>Chamados</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {items.map((x) => (
+              <tr key={x.id}>
+                <td>{x.name}</td>
+                <td>{x._count.tickets}</td>
+                <td>{x.active ? "Ativa" : "Inativa"}</td>
+              </tr>
+            ))}
+
+            {items.length === 0 && (
+              <tr>
+                <td colSpan={3}>
+                  Nenhuma categoria cadastrada.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
